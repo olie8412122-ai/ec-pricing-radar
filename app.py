@@ -23,10 +23,10 @@ def call_serper_search(query_string, serper_key):
     payload = json.dumps({"q": query_string, "gl": "tw", "hl": "zh-tw"}).encode('utf-8')
     try:
         req = urllib.request.Request(url, data=payload, headers=headers, method='POST')
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=12) as response:
             return json.loads(response.read().decode('utf-8')).get('organic', [])
     except Exception as e:
-        st.error(f"⚠️ 雲端搜尋引擎連線失敗 (請檢查 Serper Key 是否填寫正確或額度爆了): {e}")
+        st.error(f"⚠️ 雲端搜尋引擎連線失敗: {e}")
         return []
 
 # --- 核心大腦：呼叫 Gemini AI 智囊團 ---
@@ -35,9 +35,9 @@ def call_gemini_brain(prompt_text, gemini_key):
         genai.configure(api_key=gemini_key.strip())
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt_text)
-        return response.text.replace("```json", "").replace("```", "").strip()
+        return response.text
     except Exception as e:
-        st.error(f"⚠️ Gemini AI 運算失敗 (請檢查 Gemini Key 是否填寫正確或觸及分鐘限制): {e}")
+        st.error(f"⚠️ Gemini AI 運算失敗: {e}")
         return None
 
 # === 主網頁介面 UI ===
@@ -60,66 +60,67 @@ if st.button("🚀 啟動全網選品雷達全面大數據分析", type="primary
     else:
         with st.spinner("⏳ 正在啟動三大核心雷達模組，實時分析台灣市場大數據..."):
             
-            # --- 🛠️ 模組一：市場趨勢動向 ---
-            trend_raw_data = call_serper_search(f"{target_keyword} 趨勢 流行 2026", FINAL_SERPER_KEY)
-            
-            # --- 🛠️ 模組二：藍海長尾關鍵字 ---
-            keyword_raw_data = call_serper_search(f"{target_keyword} 推薦 比較 PTT Dcard", FINAL_SERPER_KEY)
-            
-            # --- 🛠️ 模組三：實時電商比價 ---
-            market_raw_data = call_serper_search(f"{target_keyword} 價格 (site:momoshop.com.tw OR site:24h.pchome.com.tw OR site:shopee.tw)", FINAL_SERPER_KEY)
+            # 抓取三組數據並嚴格限制筆數，避免大數據撐爆格式
+            trend_raw_data = call_serper_search(f"{target_keyword} 趨勢 流行 2026", FINAL_SERPER_KEY)[:3]
+            keyword_raw_data = call_serper_search(f"{target_keyword} 推薦 比較 PTT Dcard", FINAL_SERPER_KEY)[:3]
+            market_raw_data = call_serper_search(f"{target_keyword} 價格 (site:momoshop.com.tw OR site:24h.pchome.com.tw OR site:shopee.tw)", FINAL_SERPER_KEY)[:4]
             
             summary_data = f"""
             【分析目標商品】: {target_keyword}
             【預期進貨成本】: {estimated_cost} 元
-            
-            【模組一原始數據(趨勢觀測)】:
-            {str(trend_raw_data[:4])}
-            
-            【模組二原始數據(消費者痛點)】:
-            {str(keyword_raw_data[:4])}
-            
-            【模組三原始數據(主流電商售價)】:
-            {str(market_raw_data[:5])}
+            【趨勢數據】: {str(trend_raw_data)}
+            【消費者討論】: {str(keyword_raw_data)}
+            【電商價格】: {str(market_raw_data)}
             """
             
             prompt = f"""
-            你是精通台灣電商（momo、蝦皮）的頂尖選品大師與數據分析師。請根據提供的大數據，嚴格以下列 JSON 格式回覆：
+            請根據提供的大數據進行分析。你必須「嚴格且只回覆」一個符合以下結構的 JSON 字典物件，不要包含任何 markdown 標記（絕對不要有 ```json 或 ``` 符號），確保可以直接被 json.loads 解析。
             {{
-                "market_trend": "一句話總結該品類目前在台灣市場的熱度與動向(例如：正值夏季露營熱潮，搜尋量暴增)",
-                "potential_rank": "根據數據給予該商品綜合潛力評分(例如：高潛力、中等紅海、極高風險紅海)",
+                "market_trend": "一句話總結目前的熱度與動向",
+                "potential_rank": "高潛力 或 中等紅海 或 高風險紅海 (可在後面加上一小句簡短原因，例如：高潛力，但競爭開始加劇)",
                 "blue_ocean_keywords": [
-                    {{"keyword": "潛力長尾詞1", "reason": "為什麼這個詞是藍海？消費者有什麼未滿足的痛點？"}},
-                    {{"keyword": "潛力長尾詞2", "reason": "消費者關注的特點"}}
+                    {{"keyword": "潛力詞1", "reason": "痛點分析"}}
                 ],
                 "competitor_prices": [
-                    {{"platform": "電商平台名稱", "price": 數字型態售價, "title": "抓取到的商品標題"}}
+                    {{"platform": "平台名稱", "price": 數字價格, "title": "商品標題"}}
                 ],
-                "pricing_strategy": "如果我要賣這個商品，Gemini 給予的具體定價與行銷策略建議(必須提及利潤率與開立發票5%營業稅的考量)"
+                "pricing_strategy": "具體定價與行銷策略建議"
             }}
             
-            數據源：
+            大數據源：
             {summary_data}
             """
             
             ai_response_text = call_gemini_brain(prompt, FINAL_GEMINI_KEY)
             
             if ai_response_text:
+                # 【強效清洗保險機制】徹底過濾掉 AI 回傳可能夾帶的 Markdown 雜質
+                clean_res = ai_response_text.strip()
+                if "```" in clean_res:
+                    clean_res = clean_res.split("```")
+                    for part in clean_res:
+                        if part.strip().startswith("{") or part.strip().startswith("["):
+                            clean_res = part.strip()
+                            break
+                clean_res = clean_res.replace("```json", "").replace("```", "").strip()
+                
                 try:
-                    result = json.loads(ai_response_text)
+                    result = json.loads(clean_res)
                     st.success("🎉 全網市場情報雷達分析完成！")
                     
-                   st.header("📊 功能一：市場趨勢與熱度動向")
-col_t1, col_t2 = st.columns([2, 1])
-with col_t1:
-    st.info(f"🔎 **市場最新動態現況**：\n{result.get('market_trend')}")
-with col_t2:
-    st.markdown("### 🎯 綜合潛力評估")
-    # 使用漂亮的紅橙色警告方框，給予最大容量的空間顯示評分，文字絕對不被截斷
-    st.warning(f"**{result.get('potential_rank')}**")
+                    # --- 📝 功能一：市場趨勢與熱度動向（更新版：擴大版面，防吃字中斷） ---
+                    st.header("📊 功能一：市場趨勢與熱度動向")
+                    col_t1, col_t2 = st.columns([2, 1])
+                    with col_t1:
+                        st.info(f"🔎 **市場最新動態現況**：\n{result.get('market_trend')}")
+                    with col_t2:
+                        st.markdown("### 🎯 綜合潛力評估")
+                        # 捨棄原本限制字數的 st.metric，改用大容量 warning 方框，字再長也百分之百能完整顯示
+                        st.warning(f"**{result.get('potential_rank')}**")
                     
                     st.divider()
                     
+                    # --- 🚀 功能二：爆款潛力長尾關鍵字（藍海市場） ---
                     st.header("🚀 功能二：爆款潛力長尾關鍵字（藍海市場）")
                     for kv in result.get('blue_ocean_keywords', []):
                         with st.expander(f"📌 潛力選品核心詞：**{kv.get('keyword')}**"):
@@ -127,11 +128,12 @@ with col_t2:
                             
                     st.divider()
                     
+                    # --- 💰 功能三：主流電商實時行情與財務定價策略 ---
                     st.header("💰 功能三：主流電商實時行情與財務定價策略")
                     prices = [item.get("price") for item in result.get('competitor_prices', []) if isinstance(item.get("price"), (int, float))]
                     avg_p = sum(prices) / len(prices) if prices else 0
                     
-                    col_p1, col_p2 = st.columns([2, 3])
+                    col_p1, col_p2 = st.columns([1, 1])
                     with col_p1:
                         st.subheader("🛒 實時台灣市場現況")
                         for item in result.get('competitor_prices', []):
@@ -146,7 +148,7 @@ with col_t2:
                             st.markdown(f"""
                             | 定價策略 | 建議零售價 (含稅) | 開立發票基礎 (銷售額) | 應繳納之 5% 營業稅 |
                             | :--- | :--- | :--- | :--- |
-                            | **策略 A：迎合市場行情 (均價95%)** | **NT$ {market_suggested:,} 元** | NT$ {round(market_suggested/1.05):,} 元 | NT$ {market_suggested - round(market_suggested/1.05):,} 元 |
+                            | **策略 A：市場均價 95%** | **NT$ {market_suggested:,} 元** | NT$ {round(market_suggested/1.05):,} 元 | NT$ {market_suggested - round(market_suggested/1.05):,} 元 |
                             """)
                             
                         if estimated_cost > 0:
@@ -156,10 +158,10 @@ with col_t2:
                             st.markdown(f"""
                             | 定價策略 | 建議零售價 (含稅) | 開立發票基礎 (銷售額) | 應繳納之 5% 營業稅 |
                             | :--- | :--- | :--- | :--- |
-                            | **策略 B：守住基礎利潤 (成本+20%)** | **NT$ {cost_suggested:,} 元** | NT$ {sales_amount:,} 元 | NT$ {tax_amount:,} 元 |
+                            | **策略 B：成本 + 20% 利潤** | **NT$ {cost_suggested:,} 元** | NT$ {sales_amount:,} 元 | NT$ {tax_amount:,} 元 |
                             """)
                             
                     st.warning(f"💡 **AI 實戰定價與操盤方針**：\n{result.get('pricing_strategy')}")
                     
                 except Exception as parse_error:
-                    st.error("JSON 解析失敗，可能因為雲端大數據過於龐大。請再點擊一次按鈕重新產生。")
+                    st.error("🛑 大
