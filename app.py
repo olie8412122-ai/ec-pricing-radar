@@ -108,19 +108,19 @@ if st.button("🚀 啟動全網選品雷達全面大數據分析", type="primary
                     result = json.loads(clean_res)
                     st.success("🎉 全網市場情報雷達分析完成！")
                     
-                    # --- 📝 功能一：市場趨勢與熱度動向（更新版：擴大版面，防吃字中斷） ---
+                    # --- 📝 功能一：市場趨勢與熱度動向 ---
                     st.header("📊 功能一：市場趨勢與熱度動向")
                     col_t1, col_t2 = st.columns([2, 1])
                     with col_t1:
                         st.info(f"🔎 **市場最新動態現況**：\n{result.get('market_trend')}")
                     with col_t2:
                         st.markdown("### 🎯 綜合潛力評估")
-                        # 捨棄原本限制字數的 st.metric，改用大容量 warning 方框，字再長也百分之百能完整顯示
+                        # 採用寬大 warning 方框，字再長也百分之百能完整顯示，拒絕吃字
                         st.warning(f"**{result.get('potential_rank')}**")
                     
                     st.divider()
                     
-                    # --- 🚀 功能二：爆款潛力長尾關鍵字（藍海市場） ---
+                    # --- 🚀 功能二：爆款潛力長尾關鍵字 ---
                     st.header("🚀 功能二：爆款潛力長尾關鍵字（藍海市場）")
                     for kv in result.get('blue_ocean_keywords', []):
                         with st.expander(f"📌 潛力選品核心詞：**{kv.get('keyword')}**"):
@@ -164,4 +164,4 @@ if st.button("🚀 啟動全網選品雷達全面大數據分析", type="primary
                     st.warning(f"💡 **AI 實戰定價與操盤方針**：\n{result.get('pricing_strategy')}")
                     
                 except Exception as parse_error:
-                    st.error("🛑 大
+                    st.error("🛑 解析失敗。建議換個精準商品詞再試一次！")
