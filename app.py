@@ -8,16 +8,13 @@ st.set_page_config(page_title="🇹🇼 台灣電商選品與爆款趨勢雷達"
 
 # --- 【雲端金鑰安全配置】 ---
 # 為了方便您分享給別人，您可以直接將金鑰填入下方，或者讓使用者在側邊欄自行輸入
-DEFAULT_GEMINI_KEY = "AQ.Ab8RN6JltjA1tAAue1RW9HQCUeAgYrsnZMgQZOfMHHnlPUuK1A"
-DEFAULT_SERPER_KEY = "7ea4340769006545e96fdaefe5d949764d985769"
-
-st.sidebar.header("🔑 雲端系統金鑰設定")
-st.sidebar.markdown("💡 *若後台已配置金鑰，留空即可直接運作。*")
+# --- 【雲端金鑰安全配置】 ---
+# 優先讀取左側欄位；若留空，則自動去 Streamlit 雲端保險箱（Secrets）拿金鑰
 user_gemini = st.sidebar.text_input("Gemini API Key (選填)", type="password")
 user_serper = st.sidebar.text_input("Serper (Google) Key (選填)", type="password")
 
-FINAL_GEMINI_KEY = user_gemini.strip() if user_gemini else DEFAULT_GEMINI_KEY
-FINAL_SERPER_KEY = user_serper.strip() if user_serper =="" else (user_serper.strip() if user_serper else DEFAULT_SERPER_KEY)
+FINAL_GEMINI_KEY = user_gemini.strip() if user_gemini else st.secrets.get("GEMINI_KEY", "")
+FINAL_SERPER_KEY = user_serper.strip() if user_serper else st.secrets.get("SERPER_KEY", "")
 
 # --- 核心大腦：呼叫 Google Serper 搜尋引擎 ---
 def call_serper_search(query_string, serper_key):
