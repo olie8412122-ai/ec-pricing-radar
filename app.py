@@ -109,12 +109,14 @@ if st.button("🚀 啟動全網選品雷達全面大數據分析", type="primary
                     result = json.loads(ai_response_text)
                     st.success("🎉 全網市場情報雷達分析完成！")
                     
-                    st.header("📊 功能一：市場趨勢與熱度動向")
-                    col_t1, col_t2 = st.columns([3, 1])
-                    with col_t1:
-                        st.info(f"🔎 **市場最新動態現況**：\n{result.get('market_trend')}")
-                    with col_t2:
-                        st.metric(label="🎯 綜合潛力評估", value=result.get('potential_rank'))
+                   st.header("📊 功能一：市場趨勢與熱度動向")
+col_t1, col_t2 = st.columns([2, 1])
+with col_t1:
+    st.info(f"🔎 **市場最新動態現況**：\n{result.get('market_trend')}")
+with col_t2:
+    st.markdown("### 🎯 綜合潛力評估")
+    # 使用漂亮的紅橙色警告方框，給予最大容量的空間顯示評分，文字絕對不被截斷
+    st.warning(f"**{result.get('potential_rank')}**")
                     
                     st.divider()
                     
